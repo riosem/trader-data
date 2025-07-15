@@ -1,0 +1,7 @@
+[run]
+omit = 
+    */serverless/tests/*
+
+[report]
+show_missing = True
+fail_under = 59

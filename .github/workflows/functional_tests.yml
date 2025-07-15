@@ -1,0 +1,44 @@
+name: Functional Tests
+
+on:
+  workflow_call:
+    inputs:
+      region:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      region:
+        type: string
+        required: true
+        default: 'us-east-2'
+        description: 'Enter the region'
+
+env:
+  ENV: dev
+  REGION: ${{ inputs.region }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: ${{ inputs.region }}
+
+jobs:
+  test:
+    name: Functional Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10' 
+      - name: Install Dependencies
+        run: |
+          cd ./serverless
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          cd ..
+      - name: Run Tests
+        run: |
+          cd ./serverless/tests/functional
+          pytest -m functional_tests_market --url=${{ secrets.API_URL }} --api_key=${{ secrets.API_KEY }}|| exit 1

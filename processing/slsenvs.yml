@@ -1,0 +1,27 @@
+dev:
+  subnet_id: ${ssm:/trader/dev/subnet_ids}
+  ec2_key_pair: ${ssm:/trader/dev/ec2_key_pair}
+  data_collection_bucket_name: ${ssm:/trader/dev/data/collection_bucket}
+  ollama_api_key: ${ssm:/trader/dev/ollama/api_key}
+  coinbase_api_key: ${ssm:/trader/dev/coinbase/cdp/dev/api_key}
+  coinbase_api_secret: ${ssm:/trader/dev/coinbase/cdp/dev/api_secret}
+  auth0_assistant_client_id: ${ssm:/trader/dev/auth0/assistant/client_id}
+  auth0_assistant_client_secret: ${ssm:/trader/dev/auth0/assistant/client_secret}
+  auth0_assistant_audience: ${ssm:/trader/dev/assistant/api_url}
+  auth0_oauth_url: ${ssm:/trader/dev/auth0/oauth_url}
+  assistant_api_key: ${ssm:/trader/dev/assistant/api_key}
+  cache_table_name: ${ssm:/trader/dev/authorizer/cache_table_name}
+
+prod:
+  subnet_id: ${ssm:/trader/prod/subnet_ids}
+  ec2_key_pair: ${ssm:/trader/prod/ec2_key_pair}
+  data_collection_bucket_name: ${ssm:/trader/prod/data/collection_bucket}
+  ollama_api_key: ${ssm:/trader/prod/ollama/api_key}
+  coinbase_api_key: ${ssm:/trader/prod/coinbase/cdp/api_key}
+  coinbase_api_secret: ${ssm:/trader/prod/coinbase/cdp/api_secret}
+  auth0_assistant_client_id: ${ssm:/trader/prod/auth0/assistant/client_id}
+  auth0_assistant_client_secret: ${ssm:/trader/prod/auth0/assistant/client_secret}
+  auth0_assistant_audience: ${ssm:/trader/prod/assistant/api_url}
+  auth0_oauth_url: ${ssm:/trader/prod/auth0/oauth_url}
+  assistant_api_key: ${ssm:/trader/prod/assistant/api_key}
+  cache_table_name: ${ssm:/trader/prod/authorizer/cache_table_name}

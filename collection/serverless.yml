@@ -1,0 +1,113 @@
+service: trader-data-collection
+
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  region: ${opt:region}
+  runtime: python3.10
+  deploymentBucket:
+    name: ${param:deployment-bucket}
+    serverSideEncryption: AES256
+  timeout: 60
+  environment:
+    REGION: ${opt:region}
+    DEPLOY_ENV: ${opt:stage}
+    DATA_COLLECTION_BUCKET_NAME: !Ref DataCollectionBucket
+    PROVIDERS_API_KEY: ${self:custom.provider_api_key}
+    PROVIDERS_API_URL: ${self:custom.provider_api_url}
+    AUTH0_ASSISTANT_AUDIENCE: ${self:custom.auth0_assistant_audience}
+    CACHE_TABLE_NAME: ${self:custom.cache_table_name}
+    ASSISTANT_API_KEY: ${self:custom.assistant_api_key}
+    AUTH0_ASSISTANT_CLIENT_ID: ${self:custom.auth0_assistant_client_id}
+    AUTH0_ASSISTANT_CLIENT_SECRET: ${self:custom.auth0_assistant_client_secret}
+    AUTH0_OAUTH_URL: ${self:custom.env.auth0_oauth_url}
+  tags:
+    app_name: ${self:service}-${opt:stage}
+
+custom:
+  stage: ${opt:stage}
+  region: ${opt:region}
+  env: ${file(slsenvs.yml):${self:custom.stage}}
+  provider_api_key: ${param:provider_api_key, '${self:custom.env.provider_api_key}'}
+  provider_api_url: ${param:provider_api_url, '${self:custom.env.provider_api_url}'}
+  auth0_assistant_client_id: ${param:auth0_assistant_client_id, '${self:custom.env.auth0_assistant_client_id}'}
+  auth0_assistant_client_secret: ${param:auth0_assistant_client_secret, '${self:custom.env.auth0_assistant_client_secret}'}
+  auth0_assistant_audience: ${param:auth0_assistant_audience, '${self:custom.env.auth0_assistant_audience}'}
+  auth0_oauth_url: ${param:auth0_oauth_url, '${self:custom.env.auth0_oauth_url}'}
+  assistant_api_key: ${param:assistant_api_key, '${self:custom.env.assistant_api_key}'}
+  cache_table_name: ${param:cache_table_name, '${self:custom.env.cache_table_name}'}
+  logRetentionInDays: 7
+  pythonRequirements:
+    dockerizePip: true
+    slim: true
+    layer:
+      compatibleRuntimes:
+        - python3.10
+
+functions:
+  collection:
+    handler: handler.data_collection_handler
+    role: arn:aws:iam::${aws:accountId}:role/${self:service}-role-blue-${self:custom.stage}-${self:provider.region}
+    timeout: 30
+    layers:
+      - Ref: PythonRequirementsLambdaLayer
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - DataCollectionQueue
+              - Arn
+
+resources:
+  Resources:
+    DataCollectionBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:service}-bucket-${self:custom.stage}
+        LifecycleConfiguration:
+          Rules:
+            - Id: ExpireOldObjects
+              Status: Enabled
+              ExpirationInDays: 60
+              Prefix: ""
+        Tags:
+          - Key: app_name
+            Value: ${self:provider.tags.app_name}
+    DataCollectionS3BucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: !Ref DataCollectionBucket
+        PolicyDocument:
+          Statement:
+            - Effect: Allow
+              Principal:
+                AWS: arn:aws:iam::${aws:accountId}:role/${self:service}-role-blue-${self:custom.stage}-${self:provider.region}
+              Action: "s3:PutObject"
+              Resource: !Sub "${DataCollectionBucket.Arn}/*"
+    DataCollectionQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        FifoQueue: true
+        QueueName: ${self:service}-queue-${self:custom.stage}.fifo
+        MessageRetentionPeriod: 60
+        VisibilityTimeout: 300
+        RedrivePolicy:
+          deadLetterTargetArn: !GetAtt DataCollectionDLQ.Arn
+          maxReceiveCount: 1
+        Tags:
+            - Key: app_name
+              Value: ${self:provider.tags.app_name}
+    DataCollectionDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        FifoQueue: true
+        QueueName: ${self:service}-dlq-${self:custom.stage}.fifo
+        Tags:
+          - Key: app_name
+            Value: ${self:provider.tags.app_name}
+
+plugins:
+  - serverless-deployment-bucket
+  - serverless-plugin-log-retention
+  - serverless-python-requirements

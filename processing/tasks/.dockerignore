@@ -1,0 +1,7 @@
+# .dockerignore
+*
+!task/
+!task/Dockerfile
+!task/app.py
+!task/predict.py
+!task/train.py

@@ -1,0 +1,106 @@
+#!/bin/bash
+
+# $ENV
+# $REGION
+# $ACTION
+# $ACCOUNT_ID
+
+ACTION=$1
+
+DIR=$2
+
+
+install_scripts_dependencies(){
+    cd ./scripts
+    pip install -r requirements.txt
+    cd ..
+}
+
+install_serverless_dependencies(){
+    cd ./$DIR
+    npm install -g serverless@3.38.0
+    npm install
+    cd ..
+
+    install_python_dependencies
+}
+
+run_unit_tests(){
+    cd ./$DIR
+    pytest -m unit_tests --cov=. --cov-config=.coveragerc || exit 1
+    cd ..
+}
+
+run_func_tests(){
+    cd ./$DIR
+    pytest -m functional_tests || exit 1
+    cd ..
+}
+
+run_func_tests_analyze(){
+    cd ./$DIR
+    pytest -m functional_tests_analyze || exit 1
+    cd ..
+}
+
+install_python_dependencies(){
+    cd ./$DIR
+    python -m pip install --upgrade pip
+    pip install -r requirements-dev.txt
+    cd ..
+}
+
+db_setup(){
+    python manage.py makemigrations
+    python manage.py migrate --run-syncdb
+}
+
+run_functional_tests(){
+    echo "Not implemented"
+}
+
+deploy_serverless(){
+    cd ./$DIR
+    pip install -r requirements.txt
+    serverless plugin install -n serverless-deployment-bucket
+    serverless plugin install -n serverless-plugin-log-retention
+    serverless plugin install -n serverless-python-requirements
+    serverless deploy --stage $ENV --region $REGION --param="deployment-bucket=$DEPLOYMENT_BUCKET" || exit 1
+    rm -r ./.serverless
+    cd ..
+}
+
+destroy_serverless(){
+    cd ./$DIR
+    serverless remove --stage $ENV --region $REGION --param="deployment-bucket=$DEPLOYMENT_BUCKET" || exit 1
+    cd ..
+}
+
+
+echo $ACTION $ENV $REGION
+
+if [ $ACTION == "deploy-service" ];
+then
+    echo "Deploying Service"
+    install_serverless_dependencies
+    deploy_serverless
+elif [ $ACTION == "destroy-service" ];
+then
+    echo "Destroying Service"
+    install_serverless_dependencies
+    destroy_serverless
+elif [ $ACTION == "unit-tests" ];
+then
+    echo "Unit Tests"
+    install_python_dependencies
+    run_unit_tests
+elif [ $ACTION == "functional-tests" ];
+then
+    echo "Functional Tests"
+    install_python_dependencies
+    run_func_tests
+elif [ $ACTION == "build-and-push" ];
+then
+    echo "Building and Pushing Docker Image"
+    build_and_push_to_ecr
+fi

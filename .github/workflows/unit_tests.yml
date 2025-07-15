@@ -1,0 +1,39 @@
+name: Unit Tests
+
+on:
+  workflow_call:
+    inputs:
+      marks:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      marks:
+        type: string
+        required: true
+        default: 'unit-tests'
+        description: 'Enter the marks'
+
+env:
+  UNIT_TESTS: true
+
+jobs:
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10' 
+      - name: Install Dependencies
+        run: |
+          cd ./serverless
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          cd ..
+      - name: Run Tests
+        run: |
+          ./run unit-tests -m {{ inputs.marks }} || exit 1

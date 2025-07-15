@@ -1,0 +1,49 @@
+name: "Deploy PROD Processing"
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        type: choice
+        description: Pick action
+        options:
+        - deploy
+        - destroy
+      region:
+        type: choice
+        description: Pick region
+        options:
+        - us-east-2
+
+env:
+  ENV: prod
+  REGION: ${{ inputs.region }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_PROCESSING_PROD }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROCESSING_PROD }}
+  AWS_DEFAULT_REGION: ${{ inputs.region }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Upload requirements to S3
+        run: |
+          aws s3 cp ./serverless/processing/functions/install_requirements.sh s3://${{ secrets.DATA_COLLECTION_BUCKET_PROD }}/processing/install_requirements.sh
+          aws s3 cp ./serverless/processing/functions/candle_stick_patterns.py s3://${{ secrets.DATA_COLLECTION_BUCKET_PROD }}/processing/candle_stick_patterns.py
+          aws s3 cp ./serverless/processing/functions/predict_model.py s3://${{ secrets.DATA_COLLECTION_BUCKET_PROD }}/processing/predict_model.py
+          aws s3 cp ./serverless/processing/functions/train_model.py s3://${{ secrets.DATA_COLLECTION_BUCKET_PROD }}/processing/train_model.py
+          aws s3 cp ./serverless/processing/requirements.txt s3://${{ secrets.DATA_COLLECTION_BUCKET_PROD }}/processing/requirements.txt
+
+      - name: Deploy
+        run: |
+          ./run ${{ inputs.action }}-service processing
