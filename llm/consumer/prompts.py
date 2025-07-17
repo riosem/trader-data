@@ -13,6 +13,11 @@ from datetime import datetime, timedelta
 from utils.model_client import get_llm_manager
 
 
+class Prompt(Enum):
+    """ Enum to define different prompts """
+    TREND_ANALYSIS = "trend_analysis"
+
+
 # Global variables to store rolling data
 class TrendAnalysis:
     """ Class to handle the analysis of stock data """
@@ -166,7 +171,7 @@ class TrendAnalysis:
         )
 
 
-def scheduler_handler(event, context):
+def prompt_handler(event, context):
     """ Here we will process, analysis any data based on the scheduler"""
     record = event["Records"][0] or {}
 
@@ -174,9 +179,24 @@ def scheduler_handler(event, context):
 
     correlation_id = body.get("correlation_id")
     product_id = body.get("product_id")
+    prompt = body.get("prompt", Prompt.TREND_ANALYSIS.value)
     logger.info(f"Processing data for product: {product_id}")
 
     # For now we will analysis candle stick data for past 24 hours
+    if prompt != Prompt.TREND_ANALYSIS.value:
+        logger.error("Unsupported prompt type")
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"error": "Unsupported prompt type"})
+        }
+    
+    if not product_id:
+        logger.error("Product ID is required")
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"error": "Product ID is required"})
+        }
+    # Initialize the TrendAnalysis class
     process = TrendAnalysis(product_id)
     process.fecth_data()
     process.process_stock_update()

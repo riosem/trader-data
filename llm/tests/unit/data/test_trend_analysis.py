@@ -1,6 +1,6 @@
 import pytest
 
-from consumer.trend_analysis import scheduler_handler
+from llm.consumer.prompts import scheduler_handler
 
 def test_trend_analysis():
     event = {

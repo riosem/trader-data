@@ -58,7 +58,7 @@ custom:
 
 functions:
   prompt:
-    handler: consumer.trend_analysis.scheduler_handler
+    handler: consumer.prompts.prompt_handler
     role: arn:aws:iam::${aws:accountId}:role/${self:service}-role-blue-${self:custom.stage}-${self:custom.region}
     timeout: 30
     layers:
