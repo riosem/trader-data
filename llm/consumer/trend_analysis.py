@@ -8,16 +8,10 @@ import pandas as pd
 from utils.logger import logger
 from utils.api_client import notify_assistant
 from utils.common import Env
-from openai import OpenAI
 from coinbase.rest import RESTClient
 from datetime import datetime, timedelta
+from utils.model_client import get_llm_manager
 
-
-
-ollama_client = OpenAI(
-    api_key = Env.OLLAMA_API_KEY,
-    base_url = "https://api.llama-api.com"
-)
 
 # Global variables to store rolling data
 class TrendAnalysis:
@@ -31,6 +25,7 @@ class TrendAnalysis:
 
     def __init__(self, product_id):
         self.product_id = product_id
+        self.llm_manager = get_llm_manager()
 
     def fecth_data(self):
         """ Fetch stock data from Yahoo Finance """
@@ -100,14 +95,12 @@ class TrendAnalysis:
         and should include the name of the stock.
         """
 
-        response = ollama_client.chat.completions.create(
-        model="llama3.1-70b",
-        messages=[
-                {"role": "system", "content": "Assistant is a large language model trained by OpenAI."},
-                {"role": "user", "content": prompt}
-            ],
+        return self.llm_manager.generate_response(
+            "default_bedrock", 
+            prompt,
+            temperature=0.7,
+            max_tokens=150
         )
-        return response.choices[0].message.content
 
     def calculate_insights(self):
         """ Calculate insights based on the stock data """
