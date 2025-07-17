@@ -64,6 +64,8 @@ pyjwt==2.10.1
     # via coinbase-advanced-py
 python-dateutil==2.9.0.post0
     # via botocore
+python-ulid==3.0.0
+    # via -r requirements.in
 requests==2.32.3
     # via coinbase-advanced-py
 s3transfer==0.10.4
@@ -84,8 +86,6 @@ typing-extensions==4.12.2
     #   openai
     #   pydantic
     #   pydantic-core
-ulid==1.1
-    # via -r requirements.in
 urllib3==2.2.3
     # via
     #   botocore

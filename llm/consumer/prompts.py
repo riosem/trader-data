@@ -4,6 +4,7 @@ import boto3
 import json
 import pandas as pd
 
+from enum import Enum
 
 from utils.logger import logger
 from utils.api_client import notify_assistant
@@ -179,7 +180,7 @@ def prompt_handler(event, context):
 
     correlation_id = body.get("correlation_id")
     product_id = body.get("product_id")
-    prompt = body.get("prompt", Prompt.TREND_ANALYSIS.value)
+    prompt = body.get("prompt")
     logger.info(f"Processing data for product: {product_id}")
 
     # For now we will analysis candle stick data for past 24 hours

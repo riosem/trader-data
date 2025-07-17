@@ -1,5 +1,5 @@
 boto3
 structlog
-ulid
+python-ulid
 openai
 coinbase-advanced-py
