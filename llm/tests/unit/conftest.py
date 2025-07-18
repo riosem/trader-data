@@ -3,6 +3,7 @@ import pytest
 import os
 
 from utils.common import Env
+import boto3
 
 
 @pytest.fixture()
@@ -64,3 +65,21 @@ def add_s3_object_over_1mb(add_s3_object):
         "COINBASE/BTC-USD/train/2024-12-05-14-01-07.libsvm",
         libsvm_data * 1024 * 1024 * 2,
     )
+
+@pytest.fixture
+def mock_bedrock(aws_credentials):
+    from moto import mock_aws
+
+    with mock_aws():
+        bedrock_client = boto3.client("bedrock", region_name="us-east-1")
+
+        yield bedrock_client
+
+
+@pytest.fixture
+def mock_bedrock_runtime(aws_credentials):
+    from moto import mock_aws
+
+    with mock_aws():
+        bedrock_runtime = boto3.client("bedrock-runtime", region_name="us-east-1")
+        yield bedrock_runtime

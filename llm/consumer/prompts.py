@@ -22,16 +22,24 @@ class Prompt(Enum):
 # Global variables to store rolling data
 class TrendAnalysis:
     """ Class to handle the analysis of stock data """
-    data = pd.DataFrame()
-    rolling_window = pd.DataFrame()
-    daily_high = float('-inf')
-    daily_low = float('inf')
-    buying_momentum = 0
-    selling_momentum = 0
+    # data = pd.DataFrame()
+    # rolling_window = pd.DataFrame()
+    # daily_high = float('-inf')
+    # daily_low = float('inf')
+    # buying_momentum = 0
+    # selling_momentum = 0
 
     def __init__(self, product_id):
         self.product_id = product_id
         self.llm_manager = get_llm_manager()
+        self.price_change = 0
+        self.volume_change = 0
+        self.daily_high = float('-inf')
+        self.daily_low = float('inf')
+        self.buying_momentum = 0
+        self.selling_momentum = 0
+        self.data = pd.DataFrame()
+        self.rolling_window = pd.DataFrame()
 
     def fecth_data(self):
         """ Fetch stock data from Yahoo Finance """
