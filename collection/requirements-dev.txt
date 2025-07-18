@@ -8,7 +8,7 @@ attrs==24.2.0
     # via pytest
 boto3==1.35.68
     # via
-    #   -r /workspace/trader-data/serverless/requirements.in
+    #   -r /home/riosem/trader-data/collection/requirements.in
     #   moto
 botocore==1.35.68
     # via
@@ -43,12 +43,8 @@ markupsafe==3.0.2
     #   werkzeug
 moto==5.0.22
     # via -r requirements-dev.in
-numpy==2.0.2
-    # via pandas
 packaging==24.2
     # via pytest
-pandas==2.2.3
-    # via -r /workspace/trader-data/serverless/requirements.in
 pluggy==1.5.0
     # via pytest
 pycparser==2.22
@@ -66,9 +62,6 @@ python-dateutil==2.9.0.post0
     # via
     #   botocore
     #   moto
-    #   pandas
-pytz==2024.2
-    # via pandas
 pyyaml==6.0.2
     # via responses
 requests==2.32.3
@@ -85,15 +78,13 @@ s3transfer==0.10.4
 six==1.16.0
     # via python-dateutil
 structlog==24.4.0
-    # via -r /workspace/trader-data/serverless/requirements.in
+    # via -r /home/riosem/trader-data/collection/requirements.in
 tomli==2.1.0
     # via
     #   coverage
     #   pytest
-tzdata==2024.2
-    # via pandas
 ulid==1.1
-    # via -r /workspace/trader-data/serverless/requirements.in
+    # via -r /home/riosem/trader-data/collection/requirements.in
 urllib3==2.2.3
     # via
     #   botocore

@@ -1,5 +1,3 @@
 boto3
 structlog
 ulid
-openai
-coinbase-advanced-py
