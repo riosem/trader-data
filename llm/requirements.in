@@ -1,5 +1,6 @@
-boto3
-structlog
-python-ulid
-openai
-coinbase-advanced-py
+boto3==1.35.68
+structlog==24.4.0
+python-ulid==3.0.0
+openai==1.97.0
+httpcore==1.0.9
+coinbase-advanced-py==1.8.2
