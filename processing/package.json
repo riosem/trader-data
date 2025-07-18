@@ -4,6 +4,7 @@
   "devDependencies": {
     "serverless-deployment-bucket": "^1.6.0",
     "serverless-plugin-log-retention": "^2.1.0",
-    "serverless-python-requirements": "^6.1.1"
+    "serverless-python-requirements": "^6.1.1",
+    "axios": ">=1.8.2"
   }
 }
