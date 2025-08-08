@@ -1,6 +1,7 @@
 import pytest
 
 import json
+import moto
 
 
 @pytest.fixture

@@ -99,7 +99,7 @@ class TestBedrockClient:
         mock_client.converse.assert_called_once()
     
     @patch('boto3.Session')
-    def test_generate_response_with_kwargs(self, mock_session, bedrock_config):
+    def test_generate_response_with_kwargs(self, mock_session, bedrock_config, mock_bedrock, mock_bedrock_runtime):
         """Test response generation with additional parameters"""
         mock_client = Mock()
         mock_session.return_value.client.return_value = mock_client

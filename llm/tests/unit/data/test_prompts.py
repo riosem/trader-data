@@ -1,28 +1,176 @@
 import pytest
 import json
-import pandas as pd
-from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime
-from enum import Enum
+from unittest.mock import Mock, patch
 
 from consumer.prompts import (
     Prompt,
-    TrendAnalysis,
     prompt_handler
 )
 
+import pytest
+import pandas as pd
+from consumer.prompts import compute_features, ContextBuilder, PromptBuilder, fetch_data, Prompt
 
+
+@pytest.mark.unit_tests
+def test_compute_features_price_volume_change_len1():
+    # Covers the else branch for price/volume change (len(data) < 2)
+    df = pd.DataFrame({'close': [1], 'volume': [10]})
+    features = compute_features(df)
+    assert features["price_change"] is None
+    assert features["volume_change"] is None
+
+@pytest.mark.unit_tests
+def test_prompt_builder_direct():
+    # Directly test PromptBuilder with a real template and context
+    class DummyTemplate:
+        def render(self, **kwargs):
+            return f"foo={kwargs.get('foo')}"
+    pb = PromptBuilder(DummyTemplate(), {"foo": "bar"})
+    assert pb.build() == "foo=bar"
+
+
+
+
+@pytest.mark.unit_tests
+def test_compute_features_price_volume_change_short_df():
+    # Covers the else branch for price/volume change
+    df = pd.DataFrame({'close': [1], 'volume': [10]})
+    features = compute_features(df)
+    assert features["price_change"] is None
+    assert features["volume_change"] is None
+
+
+@pytest.mark.unit_tests
+def test_prompt_builder_render_called():
+    # Covers PromptBuilder.build
+    class DummyTemplate:
+        def render(self, **kwargs):
+            return "rendered"
+    pb = PromptBuilder(DummyTemplate(), {"foo": "bar"})
+    assert pb.build() == "rendered"
+
+
+@pytest.mark.unit_tests
+def test_context_builder_default_branch(monkeypatch):
+    # Patch fetch_data to avoid real API call
+    monkeypatch.setattr("consumer.prompts.fetch_data", lambda product_id: pd.DataFrame())
+    class DummyCB(ContextBuilder):
+        def build(self):
+            return super().build()
+    cb = DummyCB("BTC-USD", "unknown_prompt")
+    context = cb.build()
+    assert context == {"product_id": "BTC-USD"}
+
+
+@pytest.mark.unit_tests
+def test_prompt_handler_empty_records():
+    # Covers the case where Records is empty
+    event = {"Records": []}
+    with pytest.raises(IndexError):
+        prompt_handler(event, {})
+
+
+@pytest.mark.unit_tests
+def test_prompt_handler_missing_body():
+    # Covers the case where body is missing in record
+    event = {"Records": [{}]}
+    with pytest.raises(KeyError):
+        prompt_handler(event, {})
+
+
+@patch('consumer.prompts.notify_assistant')
+@patch('consumer.prompts.PromptEngine')
+@patch('consumer.prompts.ContextBuilder')
+def test_prompt_handler_notify_assistant_exception(self, mock_context_builder, mock_prompt_engine, mock_notify, valid_event):
+    """Test exception when notify_assistant fails"""
+    mock_context = {"product_id": "BTC-USD", "rolling_avg": 50000}
+    mock_context_builder.return_value.build.return_value = mock_context
+    mock_prompt_engine.return_value.send_prompt.return_value = "Market is bullish"
+    mock_notify.side_effect = Exception("Notify failed")
+
+    with pytest.raises(Exception):
+        prompt_handler(valid_event, {})
+
+    mock_context_builder.return_value.build.assert_called_once()
+    mock_prompt_engine.return_value.send_prompt.assert_called_once()
+    mock_notify.assert_called_once()
+
+
+@pytest.mark.unit_tests
+def test_compute_features_empty():
+    df = pd.DataFrame()
+    features = compute_features(df)
+    assert all(v is None for v in features.values())
+
+
+@pytest.mark.unit_tests
+def test_compute_features_minimal():
+    df = pd.DataFrame({'close': [1,2,3,4,5], 'volume': [10,20,30,40,50]})
+    features = compute_features(df)
+    assert features["rolling_avg"] is not None
+    assert features["ema"] is not None
+    assert features["bollinger_upper"] is not None
+    assert features["bollinger_lower"] is not None
+    assert features["rsi"] is not None
+    assert features["price_change"] == 1
+    assert features["volume_change"] == 10
+    assert features["daily_high"] == 5
+    assert features["daily_low"] == 1
+    assert features["buying_momentum"] is not None
+    assert features["selling_momentum"] is not None
+
+
+@pytest.mark.unit_tests
+def test_context_builder_trend_analysis(monkeypatch):
+    class DummyCB(ContextBuilder):
+        def build(self):
+            return {"product_id": "BTC-USD", "rolling_avg": 1}
+    cb = DummyCB("BTC-USD", Prompt.TREND_ANALYSIS.value)
+    context = cb.build()
+    assert context["product_id"] == "BTC-USD"
+
+
+@pytest.mark.unit_tests
+def test_prompt_builder():
+    class DummyTemplate:
+        def render(self, **kwargs):
+            return "rendered"
+    pb = PromptBuilder(DummyTemplate(), {"foo": "bar"})
+    assert pb.build() == "rendered"
+
+
+@pytest.mark.unit_tests
+def test_fetch_data(monkeypatch):
+    # Patch RESTClient to avoid real API call
+    class DummyClient:
+        def get_candles(self, *a, **kw):
+            class DummyCandle:
+                def to_dict(self):
+                    return {"close": 1, "volume": 1}
+            return {"candles": [DummyCandle(), DummyCandle()]}
+    monkeypatch.setattr("consumer.prompts.RESTClient", lambda *a, **kw: DummyClient())
+    import consumer.prompts
+    import pandas as pd
+    df = consumer.prompts.fetch_data("BTC-USD")
+    assert isinstance(df, pd.DataFrame)
+    assert "close" in df.columns
+    assert "volume" in df.columns
+
+
+@pytest.mark.unit_tests
 class TestPromptEnum:
     """Test Prompt enum"""
-    
+
     def test_prompt_enum_values(self):
         """Test that Prompt enum has expected values"""
         assert Prompt.TREND_ANALYSIS.value == "trend_analysis"
 
 
+@pytest.mark.unit_tests
 class TestPromptHandler:
     """Test the main prompt_handler function"""
-    
+
     @pytest.fixture
     def valid_event(self):
         return {
@@ -36,7 +184,7 @@ class TestPromptHandler:
                 }
             ]
         }
-    
+
     @pytest.fixture
     def invalid_prompt_event(self):
         return {
@@ -50,7 +198,7 @@ class TestPromptHandler:
                 }
             ]
         }
-    
+
     @pytest.fixture
     def missing_product_id_event(self):
         return {
@@ -76,231 +224,173 @@ class TestPromptHandler:
                 }
             ]
         }
-    
+
     @patch('consumer.prompts.notify_assistant')
-    @patch('consumer.prompts.TrendAnalysis')
-    def test_prompt_handler_success(self, mock_trend_analysis_class, mock_notify, valid_event):
+    @patch('consumer.prompts.PromptEngine')
+    @patch('consumer.prompts.ContextBuilder')
+    def test_prompt_handler_success(self, mock_context_builder, mock_prompt_engine, mock_notify, valid_event):
         """Test successful prompt handling"""
         # Setup mocks
-        mock_process = Mock()
-        mock_process.calculate_insights.return_value = "Market is bullish"
-        mock_trend_analysis_class.return_value = mock_process
-        
+        mock_context = {"product_id": "BTC-USD", "rolling_avg": 50000}
+        mock_context_builder.return_value.build.return_value = mock_context
+        mock_prompt_engine.return_value.send_prompt.return_value = "Market is bullish"
+
         # Execute
         response = prompt_handler(valid_event, {})
-        
+
         # Verify
         assert response["statusCode"] == 200
-        response_body = json.loads(response["body"])
-        assert response_body["message"] == "Successfully processed prompt"
-        
-        mock_trend_analysis_class.assert_called_once_with("BTC-USD")
-        mock_process.fecth_data.assert_called_once()
-        mock_process.process_stock_update.assert_called_once()
-        mock_process.calculate_insights.assert_called_once()
+        mock_context_builder.return_value.build.assert_called_once()
+        mock_prompt_engine.return_value.send_prompt.assert_called_once_with(
+            "trend_analysis", mock_context
+        )
         mock_notify.assert_called_once_with(
             correlation_id="test-correlation-id",
             message="Market is bullish"
         )
-    
+
     def test_prompt_handler_invalid_prompt(self, invalid_prompt_event):
         """Test handling of invalid prompt type"""
         response = prompt_handler(invalid_prompt_event, {})
-        
+
         assert response["statusCode"] == 400
         response_body = json.loads(response["body"])
         assert "Unsupported prompt type" in response_body["error"]
-    
+
     def test_prompt_handler_missing_product_id(self, missing_product_id_event):
         """Test handling of missing product ID"""
         response = prompt_handler(missing_product_id_event, {})
-        
+
         assert response["statusCode"] == 400
         response_body = json.loads(response["body"])
         assert "Product ID is required" in response_body["error"]
 
-    def test_prompt_handler_missing_correlation_id(self, missing_correlation_id_event):
+    @patch('consumer.prompts.notify_assistant')
+    @patch('consumer.prompts.PromptEngine')
+    @patch('consumer.prompts.ContextBuilder')
+    def test_prompt_handler_missing_correlation_id(self, mock_context_builder, mock_prompt_engine, mock_notify, missing_correlation_id_event):
         """Test handling of missing correlation ID"""
+        mock_context_builder.return_value.build.return_value = {"product_id": "BTC-USD"}
+        mock_prompt_engine.return_value.send_prompt.return_value = "Market is bullish"
         response = prompt_handler(missing_correlation_id_event, {})
-        
         assert response["statusCode"] == 400
         response_body = json.loads(response["body"])
         assert "Correlation ID is required" in response_body["error"]
-    
+
     @patch('consumer.prompts.notify_assistant')
-    @patch('consumer.prompts.TrendAnalysis')
-    def test_prompt_handler_analysis_exception(self, mock_trend_analysis_class, mock_notify, valid_event):
+    @patch('consumer.prompts.PromptEngine')
+    @patch('consumer.prompts.ContextBuilder')
+    def test_prompt_handler_analysis_exception(self, mock_context_builder, mock_prompt_engine, mock_notify, valid_event):
         """Test handling of analysis exceptions"""
         # Setup mocks to raise exception
-        mock_process = Mock()
-        mock_process.fecth_data.side_effect = Exception("Data fetch failed")
-        mock_trend_analysis_class.return_value = mock_process
-        
-        # Execute
-        response = prompt_handler(valid_event, {})
-        
-        # Verify error response
-        assert response["statusCode"] == 500
-        response_body = json.loads(response["body"])
-        assert "Internal server error" in response_body["error"]
+        mock_context_builder.return_value.build.return_value = {"product_id": "BTC-USD"}
+        mock_prompt_engine.return_value.send_prompt.side_effect = Exception("LLM error")
 
+        with pytest.raises(Exception):
+            prompt_handler(valid_event, {})
 
-class TestTrendAnalysis:
-    """Test TrendAnalysis class"""
-    
-    @pytest.fixture
-    def trend_analysis(self):
-        with patch('consumer.prompts.get_llm_manager'):
-            return TrendAnalysis("BTC-USD")
-    
-    @patch('consumer.prompts.RESTClient')
-    @patch('consumer.prompts.datetime')
-    def test_fetch_data_success(self, mock_datetime, mock_rest_client_class, trend_analysis):
-        """Test successful data fetching"""
-        # Setup mocks
-        mock_now = datetime(2024, 1, 1, 12, 0, 0)
-        mock_datetime.now.return_value = mock_now
-        
-        mock_client = Mock()
-        mock_rest_client_class.return_value = mock_client
-        
-        # Mock candles data
-        mock_candle = Mock()
-        mock_candle.to_dict.return_value = {
-            'close': '50000.0',
-            'volume': '1000.0',
-            'timestamp': 1704110400
+        mock_context_builder.return_value.build.assert_called_once()
+        mock_prompt_engine.return_value.send_prompt.assert_called_once()
+
+    def test_prompt_handler_missing_prompt(self, valid_event):
+        """Test handling of missing prompt type"""
+        event = {
+            "Records": [
+                {
+                    "body": json.dumps({
+                        "correlation_id": "test-correlation-id",
+                        "product_id": "BTC-USD"
+                    })
+                }
+            ]
         }
-        mock_client.get_candles.return_value = {"candles": [mock_candle]}
-        
-        # Execute
-        trend_analysis.fecth_data()
-        
-        # Verify
-        assert not trend_analysis.data.empty
-        assert len(trend_analysis.data) == 1
-        mock_client.get_candles.assert_called_once()
-    
-    @patch('consumer.prompts.RESTClient')
-    def test_fetch_data_api_exception(self, mock_rest_client_class, trend_analysis):
-        """Test data fetching with API exception"""
-        mock_client = Mock()
-        mock_rest_client_class.return_value = mock_client
-        mock_client.get_candles.side_effect = Exception("API Error")
-        
-        with pytest.raises(Exception, match="API Error"):
-            trend_analysis.fecth_data()
-    
-    def test_process_stock_update_empty_data(self, trend_analysis):
-        """Test processing with empty data"""
-        trend_analysis.data = pd.DataFrame()
-        
-        trend_analysis.process_stock_update()
-        
-        # Should handle empty data gracefully
-        assert trend_analysis.data.empty
-    
-    def test_process_stock_update_with_data(self, trend_analysis):
-        """Test processing with actual data"""
-        # Setup test data
-        test_data = pd.DataFrame({
-            'close': [50000.0, 51000.0, 49000.0, 52000.0, 48000.0],
-            'volume': [1000.0, 1100.0, 900.0, 1200.0, 800.0],
-            'timestamp': [1704110400, 1704110460, 1704110520, 1704110580, 1704110640]
-        })
-        trend_analysis.data = test_data
-        
-        # Execute
-        trend_analysis.process_stock_update()
-        
-        # Verify data was processed
-        assert not trend_analysis.rolling_window.empty
-        assert trend_analysis.daily_high > 0
-        assert trend_analysis.daily_low < float('inf')
-        assert len(trend_analysis.rolling_window) == 5
-    
-    @patch('consumer.prompts.get_llm_manager')
-    def test_get_natural_language_insights(self, mock_get_llm_manager, trend_analysis):
-        """Test natural language insights generation"""
-        # Setup mock
-        mock_manager = Mock()
-        mock_manager.generate_response.return_value = "BTC-USD shows bullish momentum"
-        mock_get_llm_manager.return_value = mock_manager
-        
-        # Execute
-        result = trend_analysis.get_natural_language_insights(
-            rolling_avg=50000.0,
-            ema=50100.0,
-            rsi=65.0,
-            bollinger_upper=51000.0,
-            bollinger_lower=49000.0,
-            price_change=500.0,
-            volume_change=100.0,
-            daily_high=51500.0,
-            daily_low=49500.0,
-            buying_momentum=1000.0,
-            selling_momentum=500.0
-        )
-        
-        # Verify
-        assert result == "BTC-USD shows bullish momentum"
-        mock_manager.generate_response.assert_called_once()
-    
-    def test_calculate_insights_insufficient_data(self, trend_analysis):
-        """Test insights calculation with insufficient data"""
-        # Setup insufficient data (less than 5 points needed for calculations)
-        trend_analysis.rolling_window = pd.DataFrame({
-            'close': [50000.0, 51000.0],
-            'volume': [1000.0, 1100.0]
-        })
-        
-        # Execute
-        result = trend_analysis.calculate_insights()
-        
-        # Should return None for insufficient data
-        assert result is None
-    
-    @patch('consumer.prompts.get_llm_manager')
-    def test_calculate_insights_sufficient_data(self, mock_get_llm_manager, trend_analysis):
-        """Test insights calculation with sufficient data"""
-        # Setup sufficient data
-        trend_analysis.rolling_window = pd.DataFrame({
-            'close': [50000.0, 51000.0, 49000.0, 52000.0, 48000.0, 53000.0],
-            'volume': [1000.0, 1100.0, 900.0, 1200.0, 800.0, 1300.0]
-        })
-        trend_analysis.price_change = 1000.0
-        trend_analysis.volume_change = 100.0
-        trend_analysis.daily_high = 53000.0
-        trend_analysis.daily_low = 48000.0
-        trend_analysis.buying_momentum = 2000.0
-        trend_analysis.selling_momentum = 1000.0
-        
-        # Setup mock
-        mock_manager = Mock()
-        mock_manager.generate_response.return_value = "Market analysis complete"
-        mock_get_llm_manager.return_value = mock_manager
-        
-        # Execute
-        result = trend_analysis.calculate_insights()
-        
-        # Verify
-        assert result == "Market analysis complete"
-        mock_manager.generate_response.assert_called_once()
+        response = prompt_handler(event, {})
+        assert response["statusCode"] == 400
+        response_body = json.loads(response["body"])
+        assert "Unsupported prompt type" in response_body["error"]
 
-    @patch('consumer.prompts.get_llm_manager')
-    def test_calculate_insights_llm_exception(self, mock_get_llm_manager, trend_analysis):
-        """Test insights calculation with LLM exception"""
-        # Setup sufficient data
-        trend_analysis.rolling_window = pd.DataFrame({
-            'close': [50000.0, 51000.0, 49000.0, 52000.0, 48000.0, 53000.0],
-            'volume': [1000.0, 1100.0, 900.0, 1200.0, 800.0, 1300.0]
-        })
-        
-        # Setup mock to raise exception
-        mock_manager = Mock()
-        mock_manager.generate_response.side_effect = Exception("LLM Error")
-        mock_get_llm_manager.return_value = mock_manager
-        
-        # Execute and verify exception propagates
-        with pytest.raises(Exception, match="LLM Error"):
-            trend_analysis.calculate_insights()
+    def test_prompt_handler_empty_records(self):
+        """Test handling of empty Records list"""
+        event = {"Records": []}
+        # Should not raise, but will likely KeyError or return error
+        with pytest.raises(IndexError):
+            prompt_handler(event, {})
+
+    def test_prompt_handler_missing_body(self):
+        """Test handling of missing body in record"""
+        event = {"Records": [{}]}
+        with pytest.raises(KeyError):
+            prompt_handler(event, {})
+
+    @patch('consumer.prompts.notify_assistant')
+    @patch('consumer.prompts.PromptEngine')
+    @patch('consumer.prompts.ContextBuilder')
+    def test_prompt_handler_notify_assistant_exception(self, mock_context_builder, mock_prompt_engine, mock_notify, valid_event):
+        """Test exception when notify_assistant fails"""
+        mock_context = {"product_id": "BTC-USD", "rolling_avg": 50000}
+        mock_context_builder.return_value.build.return_value = mock_context
+        mock_prompt_engine.return_value.send_prompt.return_value = "Market is bullish"
+        mock_notify.side_effect = Exception("Notify failed")
+
+        with pytest.raises(Exception):
+            prompt_handler(valid_event, {})
+
+        mock_context_builder.return_value.build.assert_called_once()
+        mock_prompt_engine.return_value.send_prompt.assert_called_once()
+        mock_notify.assert_called_once()
+
+    @patch('consumer.prompts.notify_assistant')
+    @patch('consumer.prompts.PromptEngine')
+    @patch('consumer.prompts.ContextBuilder')
+    def test_prompt_handler_empty_context(self, mock_context_builder, mock_prompt_engine, mock_notify, valid_event):
+        """Test handling when context builder returns empty context"""
+        mock_context_builder.return_value.build.return_value = {}
+        mock_prompt_engine.return_value.send_prompt.return_value = "No data"
+        response = prompt_handler(valid_event, {})
+        assert response["statusCode"] == 200
+        mock_context_builder.return_value.build.assert_called_once()
+        mock_prompt_engine.return_value.send_prompt.assert_called_once()
+        mock_notify.assert_called_once()
+    
+
+    @patch('consumer.prompts.ContextBuilder')
+    @patch('consumer.prompts.PromptEngine')
+    @patch('consumer.prompts.notify_assistant')
+    def test_prompt_handler_unexpected_exception(self, mock_notify, mock_prompt_engine, mock_context_builder, valid_event):
+        # Covers the generic exception branch in prompt_handler
+        with patch('consumer.prompts.ContextBuilder') as mock_context_builder, \
+            patch('consumer.prompts.PromptEngine') as mock_prompt_engine, \
+            patch('consumer.prompts.notify_assistant'):
+            mock_context_builder.return_value.build.return_value = {"product_id": "BTC-USD"}
+            mock_prompt_engine.return_value.send_prompt.side_effect = Exception("Unexpected error")
+            with pytest.raises(Exception):
+                prompt_handler(valid_event, {})
+                mock_context_builder.return_value.build.assert_called_once()
+                mock_prompt_engine.return_value.send_prompt.assert_called_once()
+                mock_notify.assert_called_once()
+
+    @patch('consumer.prompts.ContextBuilder')
+    @patch('consumer.prompts.PromptEngine')
+    @patch('consumer.prompts.notify_assistant')
+    def test_prompt_handler_notify_assistant_unexpected_exception(self, mock_notify, mock_prompt_engine, mock_context_builder, valid_event):
+        # Covers the exception branch for notify_assistant in prompt_handler
+        with patch('consumer.prompts.ContextBuilder') as mock_context_builder, \
+            patch('consumer.prompts.PromptEngine') as mock_prompt_engine, \
+            patch('consumer.prompts.notify_assistant', side_effect=Exception("Notify error")):
+            mock_context_builder.return_value.build.return_value = {"product_id": "BTC-USD"}
+            mock_prompt_engine.return_value.send_prompt.return_value = "Market is bullish"
+            with pytest.raises(Exception):
+                prompt_handler(valid_event, {})
+
+    @patch('consumer.prompts.ContextBuilder')
+    @patch('consumer.prompts.PromptEngine')
+    @patch('consumer.prompts.notify_assistant')
+    def test_prompt_handler_context_builder_returns_none(self, mock_notify, mock_prompt_engine, mock_context_builder, valid_event):
+        # Covers the case where context_builder.build() returns None
+        with patch('consumer.prompts.ContextBuilder') as mock_context_builder, \
+            patch('consumer.prompts.PromptEngine') as mock_prompt_engine, \
+            patch('consumer.prompts.notify_assistant'):
+            mock_context_builder.return_value.build.return_value = None
+            mock_prompt_engine.return_value.send_prompt.return_value = "No context"
+            response = prompt_handler(valid_event, {})
+            assert response["statusCode"] == 200

@@ -12,29 +12,62 @@ For deployment instructions, environment setup, and configuration details, see [
 
 ```
 trader-data/
-├── collection/             # Data collection serverless functions
-│   ├── handler.py          # Lambda handlers for data collection
-│   ├── serverless.yml      # Serverless deployment configuration
-│   ├── slsenvs.yml         # Environment variables
-│   └── requirements.txt    # Python dependencies
-├── llm/                    # LLM integration serverless functions  
-│   ├── serverless.yml      # Serverless deployment configuration
-│   ├── slsenvs.yml         # Environment variables
-│   └── requirements.txt    # Python dependencies
-├── processing/             # Data processing and ML serverless functions
-│   ├── consumer/           # ECS orchestration handlers
-│   ├── functions/          # Data processing and ML functions
-│   ├── task/               # Containerized ML tasks
-│   ├── tests/              # Unit and integration tests
-│   ├── utils/              # Shared utilities
-│   ├── serverless.yml      # Serverless deployment configuration
-│   ├── slsenvs.yml         # Environment variables
-│   └── Dockerfile          # Container image for ML tasks
-├── .github/workflows/      # CI/CD GitHub Actions workflows
-├── run                     # Project management and deployment script
-├── DEPLOYMENT.md           # Detailed deployment guide
-├── SECURITY.md             # Security policies and practices
-└── README.md               # This documentation
+├── collection/               # Data collection serverless functions
+│   ├── functions/            # Lambda function source code (handlers, utils)
+│   │   ├── consumer/         # Data collection handlers (e.g., candle_stick.py, handler.py, position.py)
+│   │   └── utils/            # Shared utilities (api_client.py, common.py, etc.)
+│   ├── tests/                # Unit and functional tests for data collection
+│   ├── serverless.yml        # Serverless deployment configuration
+│   ├── slsenvs.yml           # Environment variables
+│   ├── requirements.txt      # Python dependencies (compiled)
+│   ├── requirements.in       # Python dependencies (source)
+│   ├── requirements-dev.txt  # Dev dependencies (compiled)
+│   ├── requirements-dev.in   # Dev dependencies (source)
+│   ├── package.json          # Node.js dependencies for Serverless plugins
+│   ├── pytest.ini            # Pytest configuration and test env vars
+│   ├── .coveragerc           # Coverage.py config
+│   ├── .python-version       # Python version pin
+│   └── README.md             # Documentation for collection service
+├── llm/                      # LLM integration serverless functions  
+│   ├── consumer/             # Lambda function source code for LLM (e.g., ollama_analysis.py)
+│   ├── ollama/               # Local Ollama model fine-tuning and inference environment
+│   ├── tests/                # Unit and functional tests for LLM integration
+│   ├── utils/                # Shared utilities (api_client.py, etc.)
+│   ├── serverless.yml        # Serverless deployment configuration
+│   ├── slsenvs.yml           # Environment variables
+│   ├── requirements.txt      # Python dependencies (compiled)
+│   ├── requirements.in       # Python dependencies (source)
+│   ├── requirements-dev.txt  # Dev dependencies (compiled)
+│   ├── requirements-dev.in   # Dev dependencies (source)
+│   ├── package.json          # Node.js dependencies for Serverless plugins
+│   ├── pytest.ini            # Pytest configuration and test env vars
+│   ├── .coveragerc           # Coverage.py config
+│   ├── .python-version       # Python version pin
+│   └── README.md             # Documentation for LLM service
+├── processing/               # Data processing and ML serverless functions
+│   ├── consumer/             # ECS orchestration handlers (e.g., ecs_orchestrate.py)
+│   ├── functions/            # Data processing and ML functions (e.g., candle_stick_patterns.py, train_model.py)
+│   ├── task/                 # Containerized ML tasks (app.py, train.py, predict.py, Dockerfile)
+│   ├── tests/                # Unit and integration tests for processing
+│   ├── utils/                # Shared utilities (api_client.py, common.py, etc.)
+│   ├── serverless.yml        # Serverless deployment configuration
+│   ├── slsenvs.yml           # Environment variables
+│   ├── requirements.txt      # Python dependencies (compiled)
+│   ├── requirements.in       # Python dependencies (source)
+│   ├── requirements-dev.txt  # Dev dependencies (compiled)
+│   ├── requirements-dev.in   # Dev dependencies (source)
+│   ├── package.json          # Node.js dependencies for Serverless plugins
+│   ├── pytest.ini            # Pytest configuration and test env vars
+│   ├── .coveragerc           # Coverage.py config
+│   ├── .python-version       # Python version pin
+│   └── Dockerfile            # Container image for ML tasks
+│   └── README.md             # Documentation for processing service
+├── .github/
+│   └── workflows/            # CI/CD GitHub Actions workflows
+├── run                       # Project management and deployment script
+├── DEPLOYMENT.md             # Detailed deployment guide
+├── SECURITY.md               # Security policies and practices
+└── README.md                 # This documentation
 ```
 
 ## Key Components
