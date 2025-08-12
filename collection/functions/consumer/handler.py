@@ -17,9 +17,9 @@ def data_collection_handler(event, context):
         }
 
     msg_attributes = record.get("messageAttributes", {})
-    provider = msg_attributes.get("provider", {}).get("stringValue")
-    product_id = msg_attributes.get("product_id", {}).get("stringValue")
-    correlation_id = msg_attributes.get("correlation_id", {}).get("stringValue")
+    provider = record.get("provider", {}).get("stringValue")
+    product_id = record.get("product_id", {}).get("stringValue")
+    correlation_id = record.get("correlation_id", {}).get("stringValue")
 
     logger = log.bind(
         correlation_id=correlation_id,
