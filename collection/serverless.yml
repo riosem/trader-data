@@ -47,7 +47,7 @@ custom:
 
 functions:
   collection:
-    handler: handler.data_collection_handler
+    handler: functions.consumer.handler.data_collection_handler
     role: arn:aws:iam::${aws:accountId}:role/${self:service}-role-blue-${self:custom.stage}-${self:provider.region}
     timeout: 30
     layers:

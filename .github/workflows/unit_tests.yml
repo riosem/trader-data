@@ -30,19 +30,19 @@ jobs:
           cd ./collection
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
-          ./run ${{ inputs.action }}-service collection || exit 1
           cd ..
+          ./run ${{ inputs.action }}-service collection || exit 1
       - name: Run LLM Unit Tests
         run: |
           cd ./llm
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
-          ./run ${{ inputs.action }}-service llm || exit 1
           cd ..
+          ./run ${{ inputs.action }}-service llm || exit 1
       - name: Run Processing Unit Tests
         run: |
           cd ./processing
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
-          ./run ${{ inputs.action }}-service processing || exit 1
           cd ..
+          ./run ${{ inputs.action }}-service processing || exit 1
