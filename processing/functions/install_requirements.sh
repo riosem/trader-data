@@ -1,1 +1,0 @@
-sudo python3 -m pip install -r s3://$DATA_COLLECTION_BUCKET/processing/requirements.txt
