@@ -108,7 +108,7 @@ def sqs_record_handler(event, context):
 
         APP = body.get("APP") or os.environ.get("APP")
         MODULE = body.get("MODULE") or "feature_engineering.py"
-        IMAGE = os.environ.get("IMAGE")
+        IMAGE = os.environ.get("CONTAINER_IMAGE_URI")
         EXECUTION_ROLE = os.environ.get("EXECUTION_ROLE")
         TASK_ROLE = os.environ.get("TASK_ROLE")
         CPU = body.get("CPU") or os.environ.get("CPU", "256")

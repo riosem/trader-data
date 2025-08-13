@@ -13,6 +13,7 @@ dev:
   cache_table_name: ${ssm:/trader/dev/authorizer/cache_table_name}
   exec_role_arn: ${ssm:/trader/dev/data/processing/exec_role_arn}
   task_role_arn: ${ssm:/trader/dev/data/processing/task_role_arn}
+  container_image_uri: ${ssm:/trader/dev/data/processing/image_uri}
 
 prod:
   subnet_id: ${ssm:/trader/prod/subnet_ids}
