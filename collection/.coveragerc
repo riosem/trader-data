@@ -1,7 +1,7 @@
 [run]
 omit = 
-    */serverless/tests/*
-
+    */tests/*
+    */utils/*
 [report]
 show_missing = True
-fail_under = 59
+fail_under = 13

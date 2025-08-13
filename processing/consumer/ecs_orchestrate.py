@@ -13,8 +13,9 @@ ECS_CLIENT = boto3.client("ecs", region_name=os.getenv("REGION", "us-east-2"))
 
 # Define your task definition templates (could also load from files)
 TASK_DEFINITIONS = {
-    "fastapi": "ecs-task-definition-fastapi.json.template",
-    "vector_search": "ecs-task-definition-vector-search.json.template",
+    # "fastapi": "ecs-task-definition-fastapi.json.template",
+    # "vector_search": "ecs-task-definition-vector-search.json.template",
+    "data_processing": "ecs-task-definition-data-processing.json.template",
 }
 
 
@@ -104,7 +105,12 @@ def sqs_record_handler(event, context):
         operation = body.get("operation")
         cluster = body.get("cluster")
         task_type = body.get("task_type")
-        params = body.get("params", {})
+        params = {
+            "APP": os.environ.get("APP"),
+            "REGION": os.environ.get("REGION"),
+            "AWS_ACCOUNT_ID": os.environ.get("AWS_ACCOUNT_ID"),
+            "MODULE": os.environ.get("MODULE", "feature_engineering.py"),
+        }
 
         if operation == "run":
             # return run_task(provider, product_id, correlation_id, action=action)
