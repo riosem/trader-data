@@ -36,14 +36,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Upload requirements to S3
-        run: |
-          aws s3 cp ./serverless/processing/functions/install_requirements.sh s3://${{ secrets.DATA_COLLECTION_BUCKET }}/processing/install_requirements.sh
-          aws s3 cp ./serverless/processing/functions/candle_stick_patterns.py s3://${{ secrets.DATA_COLLECTION_BUCKET }}/processing/candle_stick_patterns.py
-          aws s3 cp ./serverless/processing/functions/predict_model.py s3://${{ secrets.DATA_COLLECTION_BUCKET }}/processing/predict_model.py
-          aws s3 cp ./serverless/processing/functions/train_model.py s3://${{ secrets.DATA_COLLECTION_BUCKET }}/processing/train_model.py
-          aws s3 cp ./serverless/processing/requirements.txt s3://${{ secrets.DATA_COLLECTION_BUCKET }}/processing/requirements.txt
-
       - name: Deploy
         run: |
           ./run ${{ inputs.action }}-service processing

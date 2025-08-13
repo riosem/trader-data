@@ -4,7 +4,7 @@
   "containerDefinitions": [
     {
       "name": "${APP}-container",
-      "image": "${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${APP}:latest",
+      "image": "${IMAGE}",
       "essential": true,
       "portMappings": [
         {
@@ -16,8 +16,8 @@
     }
   ],
   "requiresCompatibilities": ["FARGATE"],
-  "cpu": "256",
-  "memory": "512",
-  "executionRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/${EXEC_ROLE_NAME}",
-  "taskRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/${TASK_ROLE_NAME}"
+  "cpu": "${CPU}",
+  "memory": "${MEMORY}",
+  "executionRoleArn": "${EXEC_ROLE_NAME}",
+  "taskRoleArn": "${TASK_ROLE_NAME}"
 }

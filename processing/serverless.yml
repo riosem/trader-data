@@ -14,24 +14,15 @@ provider:
     REGION: ${self:provider.region}
     DEPLOY_ENV: ${opt:stage}
     DATA_COLLECTION_BUCKET_NAME: ${self:custom.data_collection_bucket_name}
-    CONTAINER_NAME: ${self:custom.container_name}
     CONTAINER_IMAGE_URI: ${self:custom.container_image_uri}
     MEMORY: ${self:custom.memory}
     CPU: ${self:custom.cpu}
     CONTAINER_PORT: ${self:custom.container_port}
     HOST_PORT: ${self:custom.host_port}
-    EXECUTION_ROLE_ARN: ${self:custom.execution_role_arn}
-    TASK_ROLE_ARN: ${self:custom.task_role_arn}
+    EXECUTION_ROLE_ARN: ${self:custom.env.service_role}
+    TASK_ROLE_ARN: ${self:custom.env.job_flow_role_name}
     CLUSTER: ${self:custom.cluster}
     RELEASE_LABEL: ${self:custom.env.release_label}
-    MASTER_INSTANCE_TYPE: ${self:custom.env.master_instance_type}
-    MASTER_INSTANCE_COUNT: ${self:custom.env.master_instance_count}
-    CORE_INSTANCE_TYPE: ${self:custom.env.core_instance_type}
-    CORE_INSTANCE_COUNT: ${self:custom.env.core_instance_count}
-    SUBNET_ID: ${self:custom.env.subnet_id}
-    EC2_KEY_PAIR: ${self:custom.env.ec2_key_pair}
-    JOB_FLOW_ROLE_NAME: ${self:custom.env.job_flow_role_name}
-    SERVICE_ROLE: ${self:custom.env.service_role}
     IDLE_TIMEOUT: ${self:custom.env.idle_timeout}
     SERVICE_NAME: ${self:custom.service}
     COINBASE_API_KEY: ${self:custom.coinbase_api_key}
@@ -49,7 +40,7 @@ custom:
   stage: ${opt:stage}
   region: ${opt:region}
   env: ${file(slsenvs.yml):${self:custom.stage}}
-  container_name: ${param:container_name, '${self:service}-container-${self:custom.stage}-${self:custom.region}'}
+  container_image_uri: ${param:container_image_uri, '${self:custom.env.container_image_uri}'}
   memory: ${param:memory, 512}
   cpu: ${param:cpu, 256}
   container_port: ${param:container_port, 80}
@@ -57,16 +48,10 @@ custom:
   execution_role_arn: ${param:execution_role_arn, 'arn:aws:iam::${aws.accountId}:role/${self:service}-task-execution-role-blue-${self:custom.stage}-${self:custom.region}'}
   task_role_arn: ${param:task_role_arn, 'arn:aws:iam::${aws.accountId}:role/${self:service}-task-role-blue-${self:custom.stage}-${self:custom.region}'}
   cluster: ${param:cluster, '${self:service}-cluster-${self:custom.stage}-${self:custom.region}'}
-  master_instance_type: ${param:master_instance_type, 'm5.xlarge'}
-  master_instance_count: ${param:master_instance_count, 1}
-  core_instance_type: ${param:core_instance_type, 'm5.xlarge'}
-  core_instance_count: ${param:core_instance_count, 2}
   subnet_id: ${param:subnet_id, '${self:custom.env.subnet_id}'}
-  ec2_key_pair: ${param:ec2_key_pair, '${self:custom.env.ec2_key_pair}'}
   job_flow_role_name: ${param:job_flow_role_name, '${self:service}-instance-profile-blue-${self:custom.stage}-${self:custom.region}'}
   service_role: ${param:service_role, '${self:service}-service-role-blue-${self:custom.stage}-${self:custom.region}'}
   idle_timeout: ${param:idle_timeout, 3600}
-  spark_job_name: ${param:spark_job_name, '${self:service}-job-${self:custom.stage}-${self:custom.region}'}
   service: ${param:service, '${self:service}-service-${self:custom.stage}-${self:custom.region}'}
   coinbase_api_key: ${param:coinbase_api_key, '${self:custom.env.coinbase_api_key}'}
   coinbase_api_secret: ${param:coinbase_api_secret, '${self:custom.env.coinbase_api_secret}'}
@@ -125,33 +110,33 @@ resources:
         Tags:
           - Key: app_name
             Value: ${self:provider.tags.app_name}
-    DataTrainTaskDefinition:
-      Type: "AWS::ECS::TaskDefinition"
-      Properties:
-        Family: "${self:service}-task-family"
-        ContainerDefinitions:
-          - Name: ${self:service}-container
-            Image: ${param:container-image}
-            Memory: 512
-            Cpu: 256
-            Essential: true
-            PortMappings:
-              - ContainerPort: 80
-                HostPort: 80
-        NetworkMode: "awsvpc"
-        RequiresCompatibilities:
-          - "FARGATE"
-        Cpu: "256"
-        Memory: "512"
-        ExecutionRoleArn: arn:aws:iam::${aws:accountId}:role/${self:service}-task-execution-role-blue-${self:custom.stage}-${self:custom.region}
-        TaskRoleArn: arn:aws:iam::${aws:accountId}:role/${self:service}-task-handler-role-blue-${self:custom.stage}-${self:custom.region}
-        Tags:
-          - Key: app_name
-            Value: ${self:provider.tags.app_name}
+    # DataTrainTaskDefinition:
+    #   Type: "AWS::ECS::TaskDefinition"
+    #   Properties:
+    #     Family: "${self:service}-task-family"
+    #     ContainerDefinitions:
+    #       - Name: ${self:service}-container
+    #         Image: ${param:container-image}
+    #         Memory: 512
+    #         Cpu: 256
+    #         Essential: true
+    #         PortMappings:
+    #           - ContainerPort: 80
+    #             HostPort: 80
+    #     NetworkMode: "awsvpc"
+    #     RequiresCompatibilities:
+    #       - "FARGATE"
+    #     Cpu: "256"
+    #     Memory: "512"
+    #     ExecutionRoleArn: arn:aws:iam::${aws:accountId}:role/${self:service}-task-execution-role-blue-${self:custom.stage}-${self:custom.region}
+    #     TaskRoleArn: arn:aws:iam::${aws:accountId}:role/${self:service}-task-handler-role-blue-${self:custom.stage}-${self:custom.region}
+    #     Tags:
+    #       - Key: app_name
+    #         Value: ${self:provider.tags.app_name}
     DataTrainLogGroup:
       Type: AWS::Logs::LogGroup
       Properties:
-        LogGroupName: /ecs/${self:service}-train-${self:custom.stage}
+        LogGroupName: /ecs/${self:service}-${self:custom.stage}
         RetentionInDays: 7
         Tags:
           - Key: app_name
