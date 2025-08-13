@@ -19,8 +19,8 @@ provider:
     CPU: ${self:custom.cpu}
     CONTAINER_PORT: ${self:custom.container_port}
     HOST_PORT: ${self:custom.host_port}
-    EXECUTION_ROLE_ARN: ${self:custom.env.service_role}
-    TASK_ROLE_ARN: ${self:custom.env.job_flow_role_name}
+    EXECUTION_ROLE_ARN: ${self:custom.service_role}
+    TASK_ROLE_ARN: ${self:custom.job_flow_role}
     CLUSTER: ${self:custom.cluster}
     RELEASE_LABEL: ${self:custom.env.release_label}
     IDLE_TIMEOUT: ${self:custom.env.idle_timeout}
@@ -49,8 +49,8 @@ custom:
   task_role_arn: ${param:task_role_arn, 'arn:aws:iam::${aws.accountId}:role/${self:service}-task-role-blue-${self:custom.stage}-${self:custom.region}'}
   cluster: ${param:cluster, '${self:service}-cluster-${self:custom.stage}-${self:custom.region}'}
   subnet_id: ${param:subnet_id, '${self:custom.env.subnet_id}'}
-  job_flow_role_name: ${param:job_flow_role_name, '${self:service}-instance-profile-blue-${self:custom.stage}-${self:custom.region}'}
-  service_role: ${param:service_role, '${self:service}-service-role-blue-${self:custom.stage}-${self:custom.region}'}
+  job_flow_role: ${param:job_flow_role_name, '${self:custom.env.task_role_arn}'}
+  service_role: ${param:service_role, '${self:custom.env.exec_role_arn}'}
   idle_timeout: ${param:idle_timeout, 3600}
   service: ${param:service, '${self:service}-service-${self:custom.stage}-${self:custom.region}'}
   coinbase_api_key: ${param:coinbase_api_key, '${self:custom.env.coinbase_api_key}'}
