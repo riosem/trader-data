@@ -2,7 +2,7 @@ import boto3
 import pytest
 import os
 
-from functions.utils.common import Env
+from utils.common import Env
 
 
 @pytest.fixture()

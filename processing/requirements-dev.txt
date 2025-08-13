@@ -37,6 +37,8 @@ jmespath==1.0.1
     # via
     #   boto3
     #   botocore
+joblib==1.5.1
+    # via -r /home/riosem/trader-data/processing/requirements.in
 markupsafe==3.0.2
     # via
     #   jinja2
