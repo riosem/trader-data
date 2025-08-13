@@ -9,13 +9,13 @@ import boto3
 import json
 import os
 
-ECS_CLIENT = boto3.client("ecs", region_name=os.getenv("REGION", "us-east-2"))
+ECS_CLIENT = boto3.client("ecs", region_name=os.getenv("REGION"))
 
 # Define your task definition templates (could also load from files)
 TASK_DEFINITIONS = {
     # "fastapi": "ecs-task-definition-fastapi.json.template",
     # "vector_search": "ecs-task-definition-vector-search.json.template",
-    "data_processing": "ecs-task-definition-data-processing.json.template",
+    "data_processing": "ecs-task-def-data-processing.json.template",
 }
 
 
@@ -105,11 +105,22 @@ def sqs_record_handler(event, context):
         operation = body.get("operation")
         cluster = body.get("cluster")
         task_type = body.get("task_type")
+
+        APP = body.get("APP") or os.environ.get("APP")
+        MODULE = body.get("MODULE") or "feature_engineering.py"
+        IMAGE = os.environ.get("IMAGE")
+        EXECUTION_ROLE = os.environ.get("EXECUTION_ROLE")
+        TASK_ROLE = os.environ.get("TASK_ROLE")
+        CPU = body.get("CPU") or os.environ.get("CPU", "256")
+        MEMORY = body.get("MEMORY") or os.environ.get("MEMORY", "512")
         params = {
-            "APP": os.environ.get("APP"),
-            "REGION": os.environ.get("REGION"),
-            "AWS_ACCOUNT_ID": os.environ.get("AWS_ACCOUNT_ID"),
-            "MODULE": os.environ.get("MODULE", "feature_engineering.py"),
+            "APP": APP,
+            "IMAGE": IMAGE,
+            "MODULE": MODULE,
+            "EXEC_ROLE_NAME": EXECUTION_ROLE,
+            "TASK_ROLE_NAME": TASK_ROLE,
+            "CPU": CPU,
+            "MEMORY": MEMORY,
         }
 
         if operation == "run":
