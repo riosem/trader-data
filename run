@@ -65,10 +65,18 @@ deploy_serverless(){
     serverless plugin install -n serverless-deployment-bucket
     serverless plugin install -n serverless-plugin-log-retention
     serverless plugin install -n serverless-python-requirements
+
+    shift 2
+    PARAMS=""
+    for param in "$@"; do
+        PARAMS="$PARAMS --param=\"$param\""
+    done
+
     serverless deploy --stage $ENV \
     --region $REGION \
     --param="deployment-bucket=$DEPLOYMENT_BUCKET" \
-    --param="task_definition=$TASK_DEFINITION" || exit 1
+    $PARAMS || exit 1
+
     rm -r ./.serverless
     cd ..
 }

@@ -20,6 +20,7 @@ env:
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROCESSING }}
   AWS_DEFAULT_REGION: ${{ inputs.region }}
   DEPLOYMENT_BUCKET: ${{ secrets.DEPLOYMENT_BUCKET }}
+  TASK_DEFINITION: ${{ secrets.TASK_DEFINITION }}
 
 
 jobs:
@@ -38,4 +39,4 @@ jobs:
 
       - name: Deploy
         run: |
-          ./run ${{ inputs.action }}-service processing
+          ./run ${{ inputs.action }}-service processing task_definition=${{ secrets.TASK_DEFINITION }}
