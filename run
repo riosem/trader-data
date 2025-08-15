@@ -75,7 +75,7 @@ deploy_serverless(){
     serverless deploy --stage $ENV \
     --region $REGION \
     --param="deployment-bucket=$DEPLOYMENT_BUCKET" \
-    $PARAMS || exit 1
+    $PARAMS > /dev/null || exit 1
 
     rm -r ./.serverless
     cd ..
