@@ -21,9 +21,10 @@ ORDER_FEATURE_KEYS = [
 ]
 
 CANDLE_FEATURE_KEYS = [
-    "open",
-    "high",
+    "start",
     "low",
+    "high",
+    "open",
     "close",
     "volume",
     # add more engineered features as needed
@@ -57,7 +58,7 @@ def s3_csv_to_libsvm(s3_bucket, s3_csv_key, s3_libsvm_key, data_type="order"):
     csv_obj = s3.get_object(Bucket=s3_bucket, Key=s3_csv_key)
     csv_content = csv_obj['Body'].read().decode('utf-8')
     csvfile = io.StringIO(csv_content)
-    reader = csv.DictReader(csvfile)
+    reader = csv.DictReader(csvfile, fieldnames=feature_keys + [label_col])
 
     def libsvm_line_generator():
         for row in reader:

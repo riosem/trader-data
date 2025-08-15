@@ -14,16 +14,12 @@ provider:
     REGION: ${self:provider.region}
     DEPLOY_ENV: ${opt:stage}
     DATA_COLLECTION_BUCKET_NAME: ${self:custom.data_collection_bucket_name}
-    CONTAINER_IMAGE_URI: ${self:custom.container_image_uri}
     MEMORY: ${self:custom.memory}
     CPU: ${self:custom.cpu}
     CONTAINER_PORT: ${self:custom.container_port}
     HOST_PORT: ${self:custom.host_port}
-    EXECUTION_ROLE_ARN: ${self:custom.env.service_role}
-    TASK_ROLE_ARN: ${self:custom.env.job_flow_role_name}
-    CLUSTER: ${self:custom.cluster}
-    RELEASE_LABEL: ${self:custom.env.release_label}
-    IDLE_TIMEOUT: ${self:custom.env.idle_timeout}
+    EXECUTION_ROLE_ARN: ${self:custom.execution_role_arn}
+    TASK_ROLE_ARN: ${self:custom.task_role_arn}
     SERVICE_NAME: ${self:custom.service}
     COINBASE_API_KEY: ${self:custom.coinbase_api_key}
     COINBASE_API_SECRET: ${self:custom.coinbase_api_secret}
@@ -33,25 +29,23 @@ provider:
     AUTH0_ASSISTANT_CLIENT_SECRET: ${self:custom.auth0_assistant_client_secret}
     AUTH0_OAUTH_URL: ${self:custom.env.auth0_oauth_url}
     CACHE_TABLE_NAME: ${self:custom.cache_table_name}
+    SUBNET_ID: ${self:custom.subnet_id}
+    SECURITY_GROUP_ID: ${self:custom.env.security_group_id}
   tags:
     app_name: ${self:service}-${opt:stage}
 
 custom:
   stage: ${opt:stage}
   region: ${opt:region}
+  task_definition: ${param:task_definition}
   env: ${file(slsenvs.yml):${self:custom.stage}}
-  container_image_uri: ${param:container_image_uri, '${self:custom.env.container_image_uri}'}
   memory: ${param:memory, 512}
   cpu: ${param:cpu, 256}
   container_port: ${param:container_port, 80}
   host_port: ${param:host_port, 80}
-  execution_role_arn: ${param:execution_role_arn, 'arn:aws:iam::${aws.accountId}:role/${self:service}-task-execution-role-blue-${self:custom.stage}-${self:custom.region}'}
-  task_role_arn: ${param:task_role_arn, 'arn:aws:iam::${aws.accountId}:role/${self:service}-task-role-blue-${self:custom.stage}-${self:custom.region}'}
-  cluster: ${param:cluster, '${self:service}-cluster-${self:custom.stage}-${self:custom.region}'}
+  execution_role_arn: ${param:execution_role_arn, '${self:custom.env.exec_role_arn}'}
+  task_role_arn: ${param:task_role_arn, '${self:custom.env.task_role_arn}'}
   subnet_id: ${param:subnet_id, '${self:custom.env.subnet_id}'}
-  job_flow_role_name: ${param:job_flow_role_name, '${self:service}-instance-profile-blue-${self:custom.stage}-${self:custom.region}'}
-  service_role: ${param:service_role, '${self:service}-service-role-blue-${self:custom.stage}-${self:custom.region}'}
-  idle_timeout: ${param:idle_timeout, 3600}
   service: ${param:service, '${self:service}-service-${self:custom.stage}-${self:custom.region}'}
   coinbase_api_key: ${param:coinbase_api_key, '${self:custom.env.coinbase_api_key}'}
   coinbase_api_secret: ${param:coinbase_api_secret, '${self:custom.env.coinbase_api_secret}'}
@@ -62,6 +56,7 @@ custom:
   assistant_api_key: ${param:assistant_api_key, '${self:custom.env.assistant_api_key}'}
   cache_table_name: ${param:cache_table_name, '${self:custom.env.cache_table_name}'}
   data_collection_bucket_name: ${param:data_collection_bucket_name, '${self:custom.env.data_collection_bucket_name}'}
+  security_group_id: ${param:security_group_id, '${self:custom.env.security_group_id}'}
   logRetentionInDays: 7
   pythonRequirements:
     dockerizePip: true
@@ -73,7 +68,7 @@ custom:
 functions:
   ecs_task_handler:
     handler: consumer.ecs_orchestrate.sqs_record_handler
-    role: arn:aws:iam::${aws.accountId}:role/${self:service}-role-blue-${self:custom.stage}-${self:custom.region}
+    role: arn:aws:iam::${aws:accountId}:role/${self:service}-role-blue-${self:custom.stage}-${self:custom.region}
     timeout: 30
     layers:
       - Ref: PythonRequirementsLambdaLayer
@@ -86,31 +81,31 @@ functions:
 
 resources:
   Resources:
-    DataTrainCluster:
+    DataProcessCluster:
       Type: AWS::ECS::Cluster
       Properties:
         ClusterName: ${self:service}-cluster-${self:custom.stage}
         Tags:
           - Key: app_name
             Value: ${self:provider.tags.app_name}
-    DataTrainService:
+    DataProcessService:
       Type: AWS::ECS::Service
       Properties:
         Cluster: ${self:service}-cluster-${self:custom.stage}
+        TaskDefinition: arn:aws:ecs:${self:custom.region}:${aws:accountId}:task-definition/${self:custom.task_definition}
         DesiredCount: 0
         LaunchType: FARGATE
         NetworkConfiguration:
           AwsvpcConfiguration:
             AssignPublicIp: DISABLED
             SecurityGroups:
-              - ${param:security-group-id}
+              - ${self:custom.env.security_group_id}
             Subnets:
-              - ${param:subnet-id}
-        TaskDefinition: !Ref DataTrainTaskDefinition
+              - ${self:custom.env.subnet_id}
         Tags:
           - Key: app_name
             Value: ${self:provider.tags.app_name}
-    # DataTrainTaskDefinition:
+    # DataProcessTaskDefinition:
     #   Type: "AWS::ECS::TaskDefinition"
     #   Properties:
     #     Family: "${self:service}-task-family"

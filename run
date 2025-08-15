@@ -65,7 +65,10 @@ deploy_serverless(){
     serverless plugin install -n serverless-deployment-bucket
     serverless plugin install -n serverless-plugin-log-retention
     serverless plugin install -n serverless-python-requirements
-    serverless deploy --stage $ENV --region $REGION --param="deployment-bucket=$DEPLOYMENT_BUCKET" || exit 1
+    serverless deploy --stage $ENV \
+    --region $REGION \
+    --param="deployment-bucket=$DEPLOYMENT_BUCKET" \
+    --param="task_definition=$TASK_DEFINITION" || exit 1
     rm -r ./.serverless
     cd ..
 }
@@ -75,7 +78,6 @@ destroy_serverless(){
     serverless remove --stage $ENV --region $REGION --param="deployment-bucket=$DEPLOYMENT_BUCKET" || exit 1
     cd ..
 }
-
 
 echo $ACTION $ENV $REGION
 

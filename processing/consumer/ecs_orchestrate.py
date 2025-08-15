@@ -1,59 +1,61 @@
 import json
 import boto3
-
+import os
 from utils.logger import logger as log
 from utils.common import Env
+from datetime import datetime, date
 
-
-import boto3
-import json
-import os
 
 ECS_CLIENT = boto3.client("ecs", region_name=os.getenv("REGION"))
 
-# Define your task definition templates (could also load from files)
+
 TASK_DEFINITIONS = {
-    # "fastapi": "ecs-task-definition-fastapi.json.template",
-    # "vector_search": "ecs-task-definition-vector-search.json.template",
     "data_processing": "ecs-task-def-data-processing.json.template",
 }
 
 
-def load_task_definition(template_path, params):
-    """Load and render a task definition template with params."""
-    with open(template_path) as f:
-        template = f.read()
-    for k, v in params.items():
-        template = template.replace(f"${{{k}}}", str(v))
-    return json.loads(template)
+def clean_for_json(obj):
+    """Recursively convert non-serializable objects (like datetime) to strings."""
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    elif isinstance(obj, dict):
+        return {k: clean_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [clean_for_json(v) for v in obj]
+    elif isinstance(obj, tuple):
+        return tuple(clean_for_json(v) for v in obj)
+    else:
+        return obj
 
 
-def register_task_definition(task_type, params):
-    """Register a task definition for the given type."""
-    template_path = TASK_DEFINITIONS[task_type]
-    task_def = load_task_definition(template_path, params)
-    response = ECS_CLIENT.register_task_definition(**task_def)
-    return response
+def json_dumps_safe(obj):
+    """Serialize obj to JSON, converting datetime objects to strings."""
+    return json.dumps(clean_for_json(obj), default=str)
 
 
-def run_task(cluster, task_type, params, overrides=None):
+def run_task(cluster, task_type, task_def_arn, overrides=None):
     """Run a task of the given type."""
-    response = register_task_definition(task_type, params)
-    task_def_arn = response["taskDefinition"]["taskDefinitionArn"]
-    run_response = ECS_CLIENT.run_task(
-        cluster=cluster,
-        taskDefinition=task_def_arn,
-        overrides=overrides or {},
-        launchType="FARGATE",
-        networkConfiguration={
-            "awsvpcConfiguration": {
-                "subnets": [os.getenv("SUBNET_ID")],
-                "assignPublicIp": "ENABLED"
+    log.info("RUN_TASK", cluster=cluster, task_type=task_type, task_def_arn=task_def_arn)
+    try:
+        run_response = ECS_CLIENT.run_task(
+            cluster=cluster,
+            taskDefinition=task_def_arn,
+            overrides=overrides or {},
+            launchType="FARGATE",
+            networkConfiguration={
+                "awsvpcConfiguration": {
+                    "subnets": [os.getenv("SUBNET_ID")],
+                    "assignPublicIp": "ENABLED"
+                }
             }
+        )
+        return clean_for_json(run_response)
+    except Exception as e:
+        log.error("RUN_TASK_ERROR", cluster=cluster, task_type=task_type, error=str(e))
+        return {
+            "statusCode": 500,
+            "body": json_dumps_safe({"message": f"Error running task: {str(e)}"}),
         }
-    )
-    return run_response
-
 
 def stop_task(cluster, task_arn, correlation_id=None):
     """
@@ -75,7 +77,7 @@ def stop_task(cluster, task_arn, correlation_id=None):
         logger.info("TASK_STOPPED", response=response)
         return {
             "statusCode": 200,
-            "body": json.dumps({"message": "Task stopped successfully", "response": response}),
+            "body": json_dumps_safe({"message": "Task stopped successfully", "response": response}),
         }
     except Exception as e:
         logger.error(
@@ -86,9 +88,8 @@ def stop_task(cluster, task_arn, correlation_id=None):
         )
         return {
             "statusCode": 500,
-            "body": json.dumps({"message": str(e)}),
+            "body": json_dumps_safe({"message": str(e)}),
         }
-
 
 def sqs_record_handler(event, context):
     """
@@ -105,38 +106,83 @@ def sqs_record_handler(event, context):
         operation = body.get("operation")
         cluster = body.get("cluster")
         task_type = body.get("task_type")
+        task_def_arn = body.get("task_def_arn")
 
         APP = body.get("APP") or os.environ.get("APP")
         MODULE = body.get("MODULE") or "feature_engineering.py"
-        IMAGE = os.environ.get("CONTAINER_IMAGE_URI")
-        EXECUTION_ROLE = os.environ.get("EXECUTION_ROLE")
-        TASK_ROLE = os.environ.get("TASK_ROLE")
-        CPU = body.get("CPU") or os.environ.get("CPU", "256")
-        MEMORY = body.get("MEMORY") or os.environ.get("MEMORY", "512")
-        params = {
-            "APP": APP,
-            "IMAGE": IMAGE,
-            "MODULE": MODULE,
-            "EXEC_ROLE_NAME": EXECUTION_ROLE,
-            "TASK_ROLE_NAME": TASK_ROLE,
-            "CPU": CPU,
-            "MEMORY": MEMORY,
+        s3_bucket = body.get("S3_BUCKET")
+        s3_csv_key = body.get("S3_CSV_KEY")
+        s3_libsvm_key = body.get("S3_LIBSVM_KEY")
+        data_type = body.get("DATA_TYPE")
+        # CPU = body.get("CPU") or os.environ.get("CPU", "256")
+        # MEMORY = body.get("MEMORY") or os.environ.get("MEMORY", "512")
+        container_overrides = {
+            "containerOverrides": [
+                {
+                    "name": f"{APP}-container",
+                    "command": [
+                        'python',
+                        '-u',
+                        MODULE,
+                        '--provider', provider,
+                        '--product-id', product_id,
+                        '--correlation-id', correlation_id,
+                        '--s3-bucket', s3_bucket,
+                        '--s3-csv-key', s3_csv_key,
+                        '--s3-libsvm-key', s3_libsvm_key,
+                        '--data-type', data_type,
+                        # '--cpu', CPU,
+                    ],
+                    "environment": [
+                        {
+                            "name": "PROVIDER",
+                            "value": provider
+                        },
+                        {
+                            "name": "PRODUCT_ID",
+                            "value": product_id
+                        },
+                        {
+                            "name": "CORRELATION_ID",
+                            "value": correlation_id
+                        },
+                        {
+                            "name": "S3_BUCKET",
+                            "value": s3_bucket
+                        },
+                        {
+                            "name": "S3_CSV_KEY",
+                            "value": s3_csv_key
+                        },
+                        {
+                            "name": "S3_LIBSVM_KEY",
+                            "value": s3_libsvm_key
+                        },
+                        {
+                            "name": "DATA_TYPE",
+                            "value": data_type
+                        }
+                    ]
+                },
+            ]
         }
 
+        logger.info("PROCESSING_RECORD", record=record)
         if operation == "run":
-            # return run_task(provider, product_id, correlation_id, action=action)
-            return run_task(cluster, task_type, params, overrides=body.get("overrides"))
+            result = run_task(cluster, task_type, task_def_arn, overrides=container_overrides)
+            if isinstance(result, dict) and "body" in result:
+                result["body"] = json_dumps_safe(json.loads(result["body"]))
+            return result
         elif operation == "stop":
-            # return stop_task(provider, product_id, correlation_id)
-            return stop_task(cluster, task_type, params)
+            return stop_task(cluster, task_type, task_def_arn)
         else:
             logger.error("UNKNOWN_OPERATION", message=f"Unknown operation: {operation}")
             return {
                 "statusCode": 400,
-                "body": json.dumps({"message": "Unknown operation"}),
+                "body": json_dumps_safe({"message": "Unknown operation"}),
             }
     
     return {
         "statusCode": 200,
-        "body": json.dumps({"message": "No records to process"}),
+        "body": json_dumps_safe({"message": "No records to process"}),
     }
