@@ -12,7 +12,15 @@
           "hostPort": 80
         }
       ],
-      "command": ["python", ${MODULE}],
+      "command": ["python", "${MODULE}"],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "${LOG_GROUP}",
+          "awslogs-region": "${LOG_REGION}",
+          "awslogs-stream-prefix": "${APP}"
+        }
+      }
     }
   ],
   "requiresCompatibilities": ["FARGATE"],

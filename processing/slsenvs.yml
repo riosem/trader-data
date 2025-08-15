@@ -1,6 +1,6 @@
 dev:
-  subnet_id: ${ssm:/trader/dev/subnet_ids}
-  ec2_key_pair: ${ssm:/trader/dev/ec2_key_pair}
+  subnet_id: ${ssm:/trader/dev/vpc/subnets/public1a}
+  security_group_id: ${ssm:/trader/dev/vpc/security_groups/dev_sg_01}
   data_collection_bucket_name: ${ssm:/trader/dev/data/collection_bucket}
   ollama_api_key: ${ssm:/trader/dev/ollama/api_key}
   coinbase_api_key: ${ssm:/trader/dev/coinbase/cdp/dev/api_key}
@@ -13,7 +13,6 @@ dev:
   cache_table_name: ${ssm:/trader/dev/authorizer/cache_table_name}
   exec_role_arn: ${ssm:/trader/dev/data/processing/exec_role_arn}
   task_role_arn: ${ssm:/trader/dev/data/processing/task_role_arn}
-  container_image_uri: ${ssm:/trader/dev/data/processing/image_uri}
 
 prod:
   subnet_id: ${ssm:/trader/prod/subnet_ids}

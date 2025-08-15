@@ -1,3 +1,7 @@
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+export REGION=$REGION
+export APP=$APP
+
 
 aws ecr create-repository --repository-name $APP --region $REGION 2>/dev/null || true
 

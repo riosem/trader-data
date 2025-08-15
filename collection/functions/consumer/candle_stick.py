@@ -20,6 +20,15 @@ def get_data_dir():
     return "historical"
 
 
+def get_trend_label(candle_stick):
+    try:
+        open_val = float(candle_stick["open"])
+        close_val = float(candle_stick["close"])
+        return "up" if close_val > open_val else "down"
+    except (KeyError, ValueError):
+        return "down"
+
+
 def collect_data(provider, product_id, candle_sticks, correlation_id):
     """Handle candle stick data from s3 bucket and processes it"""
     OPERATION = "process_candles_stick_data"
@@ -33,11 +42,14 @@ def collect_data(provider, product_id, candle_sticks, correlation_id):
         "close",
         "volume"
     ]
+    label_keys = ["trend"]
 
-    # we will save candle stick data in csv format
     csv_lines = []
     for candle_stick in candle_sticks:
         features = [str(candle_stick[key]) for key in feature_keys]
+        trend = get_trend_label(candle_stick)
+        labels = [trend]
+        features.extend(labels)
         csv_line = ",".join(features)
         csv_lines.append(csv_line)
     csv_data = "\n".join(csv_lines)

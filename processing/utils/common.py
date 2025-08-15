@@ -9,7 +9,6 @@ class Env:
 
     # TASK HANDLER
     CONTAINER_NAME = os.getenv("CONTAINER_NAME")
-    CONTAINER_IMAGE_URI = os.getenv("CONTAINER_IMAGE_URI")
     MEMORY = os.getenv("MEMORY")
     CPU = os.getenv("CPU")
     CONTAINER_PORT = os.getenv("CONTAINER_PORT")
