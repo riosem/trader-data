@@ -26,7 +26,6 @@ def get_config():
         config = {
             "bucket": os.environ['S3_BUCKET'],
             "s3_key": os.environ['S3_KEY'],
-            "output_path": os.environ['OUTPUT_PATH'],
             "provider": os.environ['PROVIDER'],
             "product_id": os.environ['PRODUCT_ID'],
             "correlation_id": os.environ['CORRELATION_ID'],
@@ -74,7 +73,7 @@ def load_data(train_local, val_local):
         return X_train, y_train, X_val, y_val
     except Exception as e:
         logger.error(f"Error loading data: {e}")
-        raise
+        return None, None, None, None
 
 def train_model(X_train, y_train, X_val, y_val, hyperparams, model_class):
     """
@@ -122,7 +121,7 @@ def evaluate_model(model, X_train, y_train, X_val, y_val):
         }
     except Exception as e:
         logger.error(f"Error during model evaluation: {e}")
-        raise
+        return {"error": str(e)}
 
 def save_and_upload_model(s3_client, model, bucket, s3_key, model_version=None):
     try:

@@ -32,12 +32,9 @@ CANDLE_FEATURE_KEYS = [
 
 
 def csv_row_to_libsvm(row, feature_keys, label_col, label_map=None):
-    label_val = row[label_col]
-    if label_map:
-        label = label_map.get(label_val, label_val)
-    else:
-        label = label_val
-    features = (f"{i+1}:{row[key]}" for i, key in enumerate(feature_keys))
+    label_val = row.get(label_col, None)
+    label = label_map.get(label_val, 0) if label_map and label_val in label_map else 0
+    features = (f"{i+1}:{row.get(key, 0)}" for i, key in enumerate(feature_keys))
     return f"{label} " + " ".join(features)
 
 

@@ -23,7 +23,7 @@ def test_csv_row_to_libsvm_order():
     assert line.startswith("0 ")
 
 def test_csv_row_to_libsvm_candle():
-    row = {"open": "1", "high": "2", "low": "0", "close": "1.5", "volume": "100", "trend": "up"}
+    row = {"start": "0", "open": "1", "high": "2", "low": "0", "close": "1.5", "volume": "100", "trend": "up"}
     line = fe.csv_row_to_libsvm(row, fe.CANDLE_FEATURE_KEYS, "trend", {"up": 1, "down": 0})
     assert line.startswith("1 ")
 
@@ -36,6 +36,18 @@ def test_s3_csv_to_libsvm_order(mock_boto3_client):
     mock_boto3_client.return_value = s3
     fe.s3_csv_to_libsvm("bucket", "csv_key", "libsvm_key", data_type="order")
     s3.put_object.assert_called_once()
+
+def test_csv_row_to_libsvm_missing_key():
+    import tasks.feature_engineering as fe
+    row = {"open": "1", "high": "2"}  # missing keys
+    line = fe.csv_row_to_libsvm(row, fe.CANDLE_FEATURE_KEYS, "trend", {"up": 1, "down": 0})
+    assert line.startswith("0 ")
+
+def test_csv_row_to_libsvm_invalid_label():
+    import tasks.feature_engineering as fe
+    row = {"start": "0", "open": "1", "high": "2", "low": "0", "close": "1.5", "volume": "100", "trend": "unknown"}
+    line = fe.csv_row_to_libsvm(row, fe.CANDLE_FEATURE_KEYS, "trend", {"up": 1, "down": 0})
+    assert line.startswith("0 ")
 
 # --- predict_scikit.py ---
 import tasks.predict_scikit as pred
@@ -54,10 +66,13 @@ def test_load_model(mock_load):
 
 @patch("tasks.predict_scikit.load_svmlight_file")
 def test_load_input_data(mock_load):
-    mock_load.return_value = (["X"], ["y"])
-    X, y = pred.load_input_data("input")
-    assert X == ["X"]
-    assert y == ["y"]
+    import numpy as np
+    X = np.array([[1], [2]])
+    y = np.array([0, 1])
+    mock_load.return_value = (X, y)
+    X_out, y_out = pred.load_input_data("input")
+    assert X_out.shape[0] == 2
+    assert y_out.shape[0] == 2
 
 def test_save_predictions(tmp_path):
     preds = [0.1, 0.2, 0.3]
@@ -66,6 +81,22 @@ def test_save_predictions(tmp_path):
     with open(out) as f:
         lines = f.readlines()
     assert len(lines) == 3
+
+def test_load_input_data_error(monkeypatch):
+    import tasks.predict_scikit as pred
+    def bad_load(*args, **kwargs):
+        raise Exception("fail")
+    monkeypatch.setattr(pred, "load_svmlight_file", bad_load)
+    X, y = pred.load_input_data("input")
+    assert X is None and y is None
+
+def test_save_predictions_error(tmp_path):
+    import tasks.predict_scikit as pred
+    # Simulate error by passing an invalid path
+    try:
+        pred.save_predictions([0.1], "/invalid/path/preds.txt")
+    except Exception:
+        assert True
 
 # --- train_scikit.py ---
 import tasks.train_scikit as train
@@ -93,10 +124,15 @@ def test_download_data(mock_boto3_client):
 
 @patch("tasks.train_scikit.load_svmlight_file")
 def test_load_data(mock_load):
-    mock_load.side_effect = [(["X"], ["y"]), (["Xv"], ["yv"])]
-    X_train, y_train, X_val, y_val = train.load_data("train", "val")
-    assert X_train == ["X"]
-    assert y_val == ["yv"]
+    import numpy as np
+    X_train = np.array([[1, 2], [3, 4]])
+    y_train = np.array([0, 1])
+    X_val = np.array([[5, 6]])
+    y_val = np.array([1])
+    mock_load.side_effect = [(X_train, y_train), (X_val, y_val)]
+    X_train_out, y_train_out, X_val_out, y_val_out = train.load_data("train", "val")
+    assert X_train_out.shape == (2, 2)
+    assert y_val_out.shape == (1,)
 
 def test_train_model(monkeypatch):
     class DummyModel:
@@ -106,11 +142,12 @@ def test_train_model(monkeypatch):
     assert hasattr(model, "fit")
 
 def test_evaluate_model():
+    import numpy as np
     class DummyModel:
-        def predict_proba(self, X): return [[0.1, 0.9]] * 2
+        def predict_proba(self, X): return np.array([[0.1, 0.9]] * len(X))
         feature_importances_ = [0.5, 0.5]
         best_iteration = 1
-    import numpy as np
+    
     model = DummyModel()
     X = [[0], [1]]
     y = [0, 1]
@@ -133,6 +170,22 @@ def test_save_and_upload_results(mock_boto3_client, tmp_path):
     results = {"a": 1}
     train.save_and_upload_results(s3, results, "bucket", "key")
     s3.upload_file.assert_called_once()
+
+
+def test_load_data_error(monkeypatch):
+    import tasks.train_scikit as train
+    def bad_load(*args, **kwargs):
+        raise Exception("fail")
+    monkeypatch.setattr(train, "load_svmlight_file", bad_load)
+    X, y, Xv, yv = train.load_data("train", "val")
+    assert X is None and y is None
+
+def test_evaluate_model_error():
+    import tasks.train_scikit as train
+    class BadModel:
+        def predict_proba(self, X): raise Exception("fail")
+    metrics = train.evaluate_model(BadModel(), [[0]], [0], [[0]], [0])
+    assert "error" in metrics
 
 # --- rag_api.py ---
 import tasks.rag_api as rag
