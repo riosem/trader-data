@@ -30,13 +30,12 @@ def load_model(local_path):
 
 def load_input_data(input_path):
     try:
-        logger.info(f"Loading input data from {input_path} ...")
         X, y = load_svmlight_file(input_path)
         logger.info(f"Loaded {X.shape[0]} samples.")
         return X, y
     except Exception as e:
         logger.error(f"Error loading input data: {e}")
-        raise
+        return None, None
 
 def save_predictions(preds, output_path):
     try:

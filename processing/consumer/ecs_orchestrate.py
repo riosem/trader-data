@@ -57,6 +57,28 @@ def run_task(cluster, task_type, task_def_arn, overrides=None):
             "body": json_dumps_safe({"message": f"Error running task: {str(e)}"}),
         }
 
+
+def build_env_vars(module, s3_bucket, **kwargs):
+    """Builds the environment variables for the ECS task."""
+    if module == "feature_engineering.py":
+        return [
+            {"name": "S3_BUCKET", "value": s3_bucket},
+            {"name": "S3_CSV_KEY", "value": kwargs.get("s3_csv_key")},
+            {"name": "S3_LIBSVM_KEY", "value": kwargs.get("s3_libsvm_key")},
+            {"name": "DATA_TYPE", "value": kwargs.get("data_type")}
+        ]
+    elif module == "train_scikit.py":
+        return [
+            {"name": "S3_BUCKET", "value": s3_bucket},
+            {"name": "S3_KEY", "value": kwargs.get("s3_key")},
+        ]
+    elif module == "predict_scikit.py":
+        return [
+            {"name": "S3_BUCKET", "value": s3_bucket},
+            {"name": "S3_KEY", "value": kwargs.get("s3_key")},
+        ]
+
+
 def stop_task(cluster, task_arn, correlation_id=None):
     """
     Stops a running ECS task.
@@ -116,6 +138,15 @@ def sqs_record_handler(event, context):
         data_type = body.get("DATA_TYPE")
         # CPU = body.get("CPU") or os.environ.get("CPU", "256")
         # MEMORY = body.get("MEMORY") or os.environ.get("MEMORY", "512")
+
+        env_vars = build_env_vars(
+            MODULE, 
+            s3_bucket, 
+            s3_csv_key=s3_csv_key, 
+            s3_libsvm_key=s3_libsvm_key, 
+            data_type=data_type, 
+            s3_key=f"{provider}/{product_id}"
+        )
         container_overrides = {
             "containerOverrides": [
                 {
@@ -149,20 +180,8 @@ def sqs_record_handler(event, context):
                         {
                             "name": "S3_BUCKET",
                             "value": s3_bucket
-                        },
-                        {
-                            "name": "S3_CSV_KEY",
-                            "value": s3_csv_key
-                        },
-                        {
-                            "name": "S3_LIBSVM_KEY",
-                            "value": s3_libsvm_key
-                        },
-                        {
-                            "name": "DATA_TYPE",
-                            "value": data_type
                         }
-                    ]
+                    ] + env_vars
                 },
             ]
         }
